@@ -7,7 +7,7 @@ from models.bag_user import BagUser
 from services.db_context import db
 from nonebot.adapters.onebot.v11.permission import GROUP
 from configs.config import NICKNAME
-from .ishop_handle.personal_goodsinfo import func_text,PersonalGoods
+from ._personal_goodsinfo import func_text,PersonalGoods
 from models.group_member_info import GroupInfoUser
 from utils.message_builder import at
 
