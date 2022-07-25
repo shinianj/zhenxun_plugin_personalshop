@@ -15,7 +15,7 @@ from basic_plugins.shop.use.data_source import  func_manager
 from configs.config import NICKNAME
 from utils.utils import is_number
 from models.goods_info import GoodsInfo
-from .ishop_handle.personal_goodsinfo import func_text,PersonalGoods
+from ._personal_goodsinfo import func_text,PersonalGoods
 import nonebot
 
 __zx_plugin_name__="私人交易"
