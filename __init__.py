@@ -10,4 +10,4 @@ Config.add_plugin_config(
     default_value=True
 )
 
-nonebot.load_plugins("extensive_plugin/ishop")
+nonebot.load_plugins("extensive_plugin/zhenxun_plugin_personalshop")
