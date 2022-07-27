@@ -9,7 +9,7 @@
 
 ### 使用方式
 
-    请把系列插件打包进一个新建文件夹（建议命名为personal_shop)，然后丢进你真寻的extensive_plugin(如果真寻的自定义插件没有改名字的话，改了请以官方页为准)
+    请把系列插件打包进一个新建文件夹（建议命名为zhenxun_plugin_personal_shop)，然后丢进你真寻的extensive_plugin(如果真寻的自定义插件没有改名字的话，改了请以官方页为准)
 
 **注：以下的{NICKNAME}皆为bot（机器人）**
 
