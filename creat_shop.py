@@ -119,7 +119,7 @@ async def _(event: GroupMessageEvent, arg: Message = CommandArg()):
                     await cs.finish(f"道具数量不足，无法上架{num}件！")
                 if await BagUser.delete_property(event.user_id, event.group_id, name, num):
                     sucs = False#暂存一个标记，防止删除成功而上架失败导致商品消失（好像给真寻吞了也算正常……） 
-                    if func_manager.check_send_success_message(name) and await func_text.add_goods_now(event.user_id,event.group_id,name,num,price):
+                    if await func_text.add_goods_now(event.user_id,event.group_id,name,num,price):
                             sucs = True 
                             await cs.send(f"已从背包取出道具 {name}共 {num} 件并上架成功！", at_sender=True)
                             logger.info(
