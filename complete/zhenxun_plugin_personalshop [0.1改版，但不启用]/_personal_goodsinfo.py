@@ -1,0 +1,307 @@
+from services.db_context import db
+from typing import List
+from services.log import logger
+from typing import Dict
+
+
+
+class PersonalGoods(db.Model):
+    __tablename__ = "personal_goods"
+    id = db.Column(db.Integer(), primary_key=True)
+    owner_qq = db.Column(db.BigInteger(),nullable=False) #拥有者
+    group_id = db.Column(db.BigInteger(),nullable=False)#群号
+    property = db.Column(db.JSON(), nullable=False, default={})  # 新道具字段
+    bigger_8_goods = db.Column(db.JSON(), nullable=False, default={})  # 大于8字符商品代替字段
+
+    _idx1 = db.Index("personalgoods_group_users_idx1", "owner_qq","group_id", unique=True)
+
+    @classmethod
+    async def add_goods(
+        cls,
+        owner:int,
+        group_id:int,
+        goods_name: str,
+        num:int,
+        goods_price: int,) -> bool:
+        """
+        说明：
+            上架商品
+        参数：
+            :param goods_name: 商品名称
+            :param goods_num: 商品数量
+            :param goods_price: 商品价格
+        """
+        try:
+            if not await cls.get_goods_info(owner_qq = owner,goods_name = goods_name):
+                await cls.create(
+                    owner_qq = owner,
+                    group_id = group_id,
+                    goods_name=goods_name,
+                    goods_num=num,
+                    goods_price=goods_price,
+                )
+                return True
+            else :
+                query = (
+                await cls.query.where((cls.goods_name == goods_name) & (cls.owner_qq == owner))
+                .with_for_update()
+                .gino.first()
+            )
+            if not query:
+                return False
+            gn = query.goods_num
+            gn += num
+            await query.update(
+                goods_price=goods_price or query.goods_price,
+                goods_num = gn or query.goods_num,
+            ).apply()
+            return True
+
+        except Exception as e:
+            logger.error(f" PersonalGoods add_goods 发生错误 {type(e)}：{e}")
+        return False
+
+
+    @classmethod
+    async def change_goods(cls,owner:int,group_id:int, goods_name: str,change_num:int) -> bool:
+        """
+        说明：
+            下架商品
+        参数：
+            :param goods_name: 商品名称
+            :param goods_num: 商品数量
+        """
+        try:
+            query = (
+                await cls.query.where((cls.goods_name == goods_name) & (cls.owner_qq == owner) & (cls.group_id == group_id))
+                .with_for_update()
+                .gino.first()
+            )
+            if not query:
+                return False
+            gn = query.goods_num
+            if gn == 0 :
+                return False
+            else:
+                gn -= change_num
+                await query.update(
+                    goods_num = gn ,
+                ).apply()
+                return True
+        except Exception as e:
+            logger.error(f"PersonalGoods change_goods 发生错误 {type(e)}：{e}")
+        return False
+
+    @classmethod
+    async def get_goods_info(cls, owner_qq: int, goods_name: str) -> "PersonalGoods":
+        """
+        说明：
+            获取商品对象
+        参数：
+            :param goods_name: 商品名称
+        """
+        return await cls.query.where((cls.goods_name == goods_name) & (cls.owner_qq == owner_qq) ).gino.first()
+
+    @classmethod
+    async def get_all_goods(cls,owner_qq:int,group_id:int) -> List["PersonalGoods"]:
+        """
+        说明：
+            获得全部有序商品对象
+        """
+        query = await cls.query.where((cls.owner_qq == owner_qq) & (cls.group_id == group_id)).with_for_update().gino.all()
+        #id_lst = [x.id for x in query]
+        goods_lst = [x if x.owner_qq == owner_qq and x.group_id == group_id else x.owner_qq  for x in query]
+        return goods_lst
+
+    @classmethod
+    async def update_goods(
+        cls,
+        owner_qq:int,
+        group_id:int,
+        goods_name: str,
+        goods_price:int,
+    ) -> bool:
+        """
+        说明：
+            更新商品信息
+        参数：
+            :param goods_name: 商品名称
+            :param goods_price: 商品价格
+        """
+        try:
+            query = (
+                await cls.query.where((cls.goods_name == goods_name) & (cls.owner_qq == owner_qq) & (cls.group_id == group_id))
+                .with_for_update()
+                .gino.first()
+            )
+            if not query:
+                return False
+            gn = query.goods_num
+            if gn == 0 :
+                return False
+            await query.update(
+                goods_price=goods_price or query.goods_price,
+            ).apply()
+            return True
+        except Exception as e:
+            logger.error(f"PersonalGoods update_goods 发生错误 {type(e)}：{e}")
+        return False
+
+    @classmethod
+    async def get_owner_qq(cls,goods_name:str, owner: int,group_id:int,) -> "PersonalGoods":
+        """
+        说明：
+            获取拥有者
+        参数：
+            :param owner_qq: 拥有者qq号
+        """
+        return await cls.query.where((cls.goods_name == goods_name) & (cls.owner_qq == owner) & (cls.group_id == group_id)).gino.first()
+
+    @classmethod
+    async def add_goods_now(cls,
+        owner:int,
+        group_id:int,
+        goods_name: str,
+        num:int,
+        price:int,) -> bool:
+            """
+            说明：
+                上架商品
+            参数：
+                :param goods_name: 商品名称
+                :param num: 商品数量
+                :param price: 商品价格
+            """
+            query = cls.query.where((cls.owner_qq == owner) & (cls.group_id == group_id))
+            query = query.with_for_update()
+            user = await query.gino.first()
+            if user:
+                            p = user.property
+                            if p.get(goods_name) is None:
+                                p[goods_name] = {'num':num,'price':price}
+                            else:
+                                num_l = p[goods_name]['num']
+                                num_l += num
+                                p[goods_name] = {'num':num_l,'price':price}
+                            await user.update(property=p).apply()
+                            return True
+            else:
+                            await cls.create(owner_qq = owner, group_id=group_id, property={goods_name: {'num':num,'price':price}})
+                            return True
+    
+
+    @classmethod
+    async def get_goods(cls,owner_qq:int,group_id:int) -> Dict[str,str]:
+        """
+        说明：
+            获取商品字段
+        """
+        query = cls.query.where((cls.owner_qq == owner_qq) & (cls.group_id == group_id))
+        user = await query.gino.first()
+        if user:
+            return user.property
+        else:
+            await cls.create(
+                owner_qq = owner_qq,
+                group_id = group_id,
+            )
+            return {}
+
+    @classmethod
+    async def change_goods_now(cls,owner:int,group_id:int, goods_name: str,change_num:int = 1) -> bool:
+        """
+        说明：
+            下架商品
+        参数：
+            :param goods_name: 商品名称
+            :param change_num: 商品数量
+        """
+        query = cls.query.where((cls.owner_qq == owner) & (cls.group_id == group_id))
+        query = query.with_for_update()
+        user = await query.gino.first()
+        if user:
+            property_ = user.property
+            if goods_name in property_:
+                if property_[goods_name]['num'] == change_num:
+                    del property_[goods_name]
+                else:
+                    num_l = property_[goods_name]['num']
+                    num_l -= change_num
+                    price = property_[goods_name]['price']
+                    property_[goods_name] = {'num':num_l,'price':price}
+                await user.update(property=property_).apply()
+                return True
+        return False
+
+    @classmethod
+    async def decode_num(cls,m:dict) -> int:
+        num = m['num']
+        return num
+    
+    @classmethod
+    async def decode_price(cls,m:str) -> int:
+        price = (m.split("p"))[-1]
+        return price
+
+
+    @classmethod
+    async def add_than_8_goods_now(cls,
+        owner:int,
+        group_id:int,
+        goods_name: str,
+        replace:str,
+        num:int,
+        price:int,) -> bool:
+            """
+            说明：
+                8字符商品改用id
+            参数：
+                :param goods_name: 商品名称
+                :param goods_num: 商品数量
+                :param goods_price: 商品价格
+            """
+            query = cls.query.where((cls.owner_qq == owner) & (cls.group_id == group_id))
+            query = query.with_for_update()
+            user = await query.gino.first()
+            n = user.property
+            if user:
+                            p = user.bigger_8_goods
+                            for i in enumerate(p.keys()):
+                                if i == replace:
+                                     g = int(replace)
+                                     g += 1
+                                     replace = str(g)
+                            if p.get(replace) is None:
+                                p[replace] = {'name':goods_name,'id':int(replace),'num':num,'price':price}
+                            else:
+                                num_l = p[replace]['num']
+                                num_l += num
+                                p[replace] = {'name':goods_name,'id':int(replace),'num':num_l,'price':price}
+                            return True
+            else:
+                            await cls.create(owner_qq = owner, group_id=group_id, bigger_8_goods={goods_name: {'name':goods_name,'id':int(replace),'num':num,'price':price}})
+                            return True
+
+
+    @classmethod
+    async def get_replace_goods(cls,owner_qq:int,group_id:int) -> Dict[str,str]:
+        """
+        说明：
+        获取被id替代的商品名
+        """
+        query = cls.query.where((cls.owner_qq == owner_qq) & (cls.group_id == group_id))
+        user = await query.gino.first()
+        if user:
+            return user.bigger_8_goods
+        else:
+            await cls.create(
+                owner_qq = owner_qq,
+                group_id = group_id,
+            )
+            return {}
+
+    
+
+
+func_text = PersonalGoods()
+
