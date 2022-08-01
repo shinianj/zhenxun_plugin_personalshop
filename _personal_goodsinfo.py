@@ -174,7 +174,7 @@ class PersonalGoods(db.Model):
                             else:
                                 num_l = p[goods_name]['num']
                                 num_l += num
-                                p[goods_name] = {'num':num,'price':price}
+                                p[goods_name] = {'num':num_l,'price':price}
                             await user.update(property=p).apply()
                             return True
             else:
