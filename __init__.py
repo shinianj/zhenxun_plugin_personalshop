@@ -1,4 +1,5 @@
 import nonebot
+import os
 from configs.config import Config
 
 
@@ -10,4 +11,4 @@ Config.add_plugin_config(
     default_value=True
 )
 
-nonebot.load_plugins("extensive_plugin/zhenxun_plugin_personalshop")
+nonebot.load_plugins(os.path.join(os.path.dirname(__file__)))
