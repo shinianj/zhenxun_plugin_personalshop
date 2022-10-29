@@ -1,7 +1,6 @@
 import nonebot
-import os
 from configs.config import Config
-
+import os
 
 Config.add_plugin_config(
     "ishop",

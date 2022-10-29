@@ -1,6 +1,7 @@
+from typing import Tuple
 from nonebot import on_command
 from services.log import logger
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message,Bot
 from nonebot.params import CommandArg
 from utils.utils import is_number,get_message_at
 from models.bag_user import BagUser
@@ -37,9 +38,59 @@ __plugin_cd_limit__ = {"cd": 3}
 buy = on_command("私人交易", aliases={"逛该"}, priority=5, block=True, permission=GROUP)
 
 
+async def limit_info(lim:dict,qq:int,role:str,gold:str)-> Tuple[bool,str]:
+    '''
+    说明：
+        商品限制条件解读及判断
+    参数：
+        :param lim:商品条件字典
+        :param qq:发起者qq
+        :param role:发起者身份
+        :param gold:发起者金币
+    '''
+    global supers
+    result = '抱歉，该商品为'
+    r_r = False
+    g_dr = False
+    g_xr = False
+    f1 = 0
+    if lim == {}:
+        return True,'允许购买'
+    for i,p in enumerate(lim.keys()):
+        if p == 'dayu_gold':
+            result += '金币大于'+lim[p]
+            if gold > lim[p]:
+                g_dr = True
+        else:
+            g_dr = True
+        if p == 'xiaoyu_gold':
+            if f1 == 1:
+                result += '且小于' + lim[p]
+                if gold > lim[p]:
+                    g_xr = True
+            else:
+                result += '金币小于' + lim[p]
+                if gold > lim[p]:
+                    g_xr = True
+        else:
+            g_xr = True
+        if p == 'permission':
+            if p == 'administrators':
+                result+='权限为管理员'
+                if role == 'admin' or role == 'owner':
+                    r_r = True
+        else:
+            r_r = True
+    result += '的用户可购'
+    if g_dr == True and g_xr == True and r_r == True:
+        return True,'允许购买'
+    return False,result
+
 @buy.handle()
 async def _(event: GroupMessageEvent, arg: Message = CommandArg()):
     qq = get_message_at(event.json())[0]
+    gold = await BagUser.get_user_total_gold(event.user_id, event.group_id)
+    role = event.sender.role
     qq_name = await GroupInfoUser.get_group_member_nickname(qq,event.group_id)
     group = event.group_id
     buyer_name = await GroupInfoUser.get_group_member_nickname(event.user_id,event.group_id)
@@ -61,12 +112,16 @@ async def _(event: GroupMessageEvent, arg: Message = CommandArg()):
             for i in range(len(goods_name_list)):
                 if msg[0] == goods_name_list[i]:
                     goods_price = goods_lst[msg[0]]['price']
+                    goods_lim = goods_lst[msg[0]]['limit']
                     break
             else:
                 await buy.finish("请输入正确的商品名称！或检查是否是该商店中拥有的商品！")
         else:
             await buy.finish("请输入正确的商品名称！", at_sender=True)
     async with db.transaction():
+        t,log = await limit_info(goods_lim,qq,role,gold)
+        if t == False :
+            await buy.finish(log,at_sender= True)
         need_money = int(goods_price) * num
         if (
             await BagUser.get_gold(event.user_id, event.group_id)
