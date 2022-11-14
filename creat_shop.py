@@ -1081,6 +1081,7 @@ async def _():
                         re += f'{i}-'
                         result_set[g][owner] = re
     for g in result_set:
+        good_lst,owner = await PersonalGoods.get_group_goods(g)
         if result_set[g][owner] != '':
             for n in result_set[g]:
                 name = await GroupInfoUser.get_group_member_nickname(n, g)
